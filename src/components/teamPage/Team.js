@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import OneCardTeam from './OneCardTeam'
+import { id } from 'ethers/lib/utils.js'
 
 export default function Team() {
   let { leagueId } = useParams()
@@ -15,6 +16,7 @@ export default function Team() {
   const dispatch = useDispatch()
   const [teamInfo, setTeamInfo] = useState([])
   const [newTeamsCreated, setNewTeamsCreated] = useState(null)
+  const [competitionFinished, setCompetitionFinished] = useState(true)
 
   MonPetitPronoContract.on('NewTeam', (_LeagueId, _TeamId, _Team_name) => {
     setNewTeamsCreated(_TeamId)
@@ -38,7 +40,10 @@ export default function Team() {
         return await MonPetitPronoContract.getTeamsInfos(leagueId, e)
       }),
     )
-    console.log(teamInfo)
+    let timeUp = await MonPetitPronoContract.getTime(leagueId)
+    if (timeUp === 1) {
+      setCompetitionFinished(false)
+    }
     setTeamInfo(teamInfo)
   }
 
@@ -56,9 +61,11 @@ export default function Team() {
               <Skeleton id="teamCardCharging" variant="rectangular" />
             </Col>
           ))}
-        <Col>
-          <AddTeam />
-        </Col>
+        {competitionFinished && (
+          <Col>
+            <AddTeam />
+          </Col>
+        )}
       </Row>
     </Container>
   )

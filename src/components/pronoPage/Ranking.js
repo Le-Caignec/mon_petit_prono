@@ -15,10 +15,38 @@ export default function Ranking() {
   const [loadingRanking, setLoadingRanking] = useState(false)
   const [hide, setHide] = useState(false)
   const wallet = useSelector((state) => state.wallet)
+  const [bestTreePlayers, setBestTreePlayers] = useState([])
+  const [finalPosition, setFinalPosition] = useState(-1)
 
   useEffect(() => {
     getRanking()
+    getBestTeam()
   }, [])
+
+  async function getBestTeam() {
+    let timeUp = await MonPetitPronoContract.getTime(leagueId)
+    if (timeUp === 1) {
+      let bestTreePlayers = await MonPetitPronoContract.getBestPlayers(
+        leagueId,
+        teamId,
+      )
+      bestTreePlayers = bestTreePlayers.map((e) => e.toLowerCase())
+      console.log('BEST TREE PLAYERS :', bestTreePlayers)
+      setBestTreePlayers(bestTreePlayers)
+      const MintPossible = await MonPetitPronoContract.getPlayerInfo(
+        leagueId,
+        teamId,
+        wallet.accountAddress,
+      )
+      if (
+        bestTreePlayers.includes(wallet.accountAddress) &&
+        MintPossible[3] === 1
+      ) {
+        setHide(true)
+        setFinalPosition(bestTreePlayers.indexOf(wallet.accountAddress))
+      }
+    }
+  }
 
   const getRanking = async () => {
     const playersId = await MonPetitPronoContract.getAllPlayerAddrFromOneTeam(
@@ -39,11 +67,6 @@ export default function Ranking() {
     )
     playersInfo.sort((a, b) => b[1] - a[1])
     setRanking(playersInfo)
-    playersInfo.slice(0, 3).map((e) => {
-      if (e[2].toLowerCase() === wallet.accountAddress.toLowerCase()) {
-        setHide(true)
-      }
-    })
   }
 
   const UpdateScore = async () => {
@@ -52,6 +75,7 @@ export default function Ranking() {
     await tr.wait()
     window.location.reload()
   }
+
   const mintNFTBestPlayer = async () => {
     NftContract.safeMint(
       wallet.accountAddress,
@@ -61,9 +85,11 @@ export default function Ranking() {
         gasLimit: 1000000,
       },
     )
-    console.log('mint NFT by user', wallet.accountAddress)
-    setHide(false)
+    const tra = await MonPetitPronoContract.MintNFTPlayer(leagueId, teamId)
+    await tra.wait()
+    window.location.reload()
   }
+
   return (
     <Container id="ranking">
       {!loadingRanking && (

@@ -1,0 +1,24 @@
+{
+  "name": "bellecour",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "create-local": "graph create --node http://localhost:8020/ NFT_Viewer",
+    "remove-local": "graph remove --node http://localhost:8020/ NFT_Viewer",
+    "deploy-local": "cd generated && graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 NFT_Viewer",
+    "build": "graph-compiler --config sample.json --include node_modules/@openzeppelin/subgraphs/src/datasources --export-schema --export-subgraph"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@amxx/graphprotocol-utils": "^1.1.0",
+    "@openzeppelin/subgraphs": "^0.1.8-5"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.29.2",
+    "@graphprotocol/graph-ts": "^0.26.0"
+  }
+}

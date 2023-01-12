@@ -91,18 +91,23 @@ function TeamRow({ team, onHide }) {
 
   async function joinNewTeam() {
     if (playerName.length > 0) {
-      let tra = await MonPetitPronoContract.addPlayer(
-        leagueId,
-        team[0],
-        playerName,
-      )
-      dispatch({
-        type: 'teamLoading/updateElemLoading',
-        payload: [...tabCopy, 'oneMore'],
-      })
-      onHide()
-      await tra.wait()
-      window.location.reload()
+      let timeUp = await MonPetitPronoContract.getTime(leagueId)
+      if (timeUp === 0) {
+        let tra = await MonPetitPronoContract.addPlayer(
+          leagueId,
+          team[0],
+          playerName,
+        )
+        dispatch({
+          type: 'teamLoading/updateElemLoading',
+          payload: [...tabCopy, 'oneMore'],
+        })
+        onHide()
+        await tra.wait()
+        window.location.reload()
+      }else{
+        alert('The Competition is Finished')
+      }
     } else {
       alert('You must enter a Player name')
     }

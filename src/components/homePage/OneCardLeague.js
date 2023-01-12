@@ -18,11 +18,8 @@ export default function OneCardLeague({ id, ipfs, NbNFT, Name }) {
   })
   const naviguate = useNavigate()
   const handle = () => {
-    /*console.log('date event',Math.trunc(test.getTime() / 1000))
-    if (metadata.endDate < Date.now()/1000){
-      MonPetitPronoContract.setEndCompetition()
-    }*/
-    naviguate(`/${id}/${Name}`)
+    let message = metadata.endDate
+    naviguate(`/${id}/${Name}`, { state: { message } })
   }
   const [image, setImage] = useState(
     `https://gateway.pinata.cloud/ipfs/${metadata.image}`,

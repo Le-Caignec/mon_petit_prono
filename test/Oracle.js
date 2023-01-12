@@ -13,15 +13,7 @@ describe('Oracle', function () {
     it('function get', async function () {
       const { deployedContract, owner } = await loadFixture(deployTokenFixture)
       const tab = await deployedContract.get()
-      expect(tab[0]).to.equal(0)
-      expect(tab[1]).to.equal(0)
-    })
-    it('function getOracleData', async function () {
-      const { deployedContract, owner } = await loadFixture(deployTokenFixture)
-      /*const value = await deployedContract.getOracleData(
-        '0x7d55ae0be7ec7d8189645f834522d9d8147865a2ef022deb006e9757567e2272',
-      )
-      expect(value).to.equal(44)*/
+      expect(tab[1].toNumber()).to.equal(0)
     })
   })
 })

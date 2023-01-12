@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9; 
 import "hardhat/console.sol";
-import './GetOracleInfo.sol';
 
-contract PetitProno is GetOracleInfo {
+contract PetitProno {
 
     address public owner;
 
     event NewLeague(string _LeagueId, string _League_name);
     event NewTeam(string _LeagueId, string _TeamId, string _Team_name);
     event NewForecast(string _LeagueId, string _ForecastId);
-    event EndDate (string _LeagueId, uint _EndDate, uint _matchDate);
-    event MatchAvailable(string _LeagueId, string _matchId);
     enum Time{ AVAILABLE, FINISHED }
     enum NFT_Mint{ DISABLED, ENABLED, MINTED }
 
@@ -21,7 +18,6 @@ contract PetitProno is GetOracleInfo {
         uint[2] result;
         uint PointNb;
         uint matchDate;
-        bytes32 _oracleId;
         bool scoreIsSet;
         NFT_Mint nftMint;
         Time time;
@@ -31,6 +27,8 @@ contract PetitProno is GetOracleInfo {
         string Player_name;
         uint score;
         string [] keyMappingForecasts;
+        NFT_Mint [3] nftTeam ;
+        NFT_Mint nftPlayer;
         mapping(string => Forecast) Forecasts;
     }
 
@@ -38,6 +36,8 @@ contract PetitProno is GetOracleInfo {
         string Team_name;
         string ipfs;
         address [] keyMappingPlayer;
+        address [] bestPlayers;
+        uint totalScore;
         mapping(address => Player) Players;
     }
 
@@ -47,6 +47,7 @@ contract PetitProno is GetOracleInfo {
         string ipfs;
         string [] keyMappingTeam;
         Time time;  
+        string [] bestTeams;
         mapping(string => Team) Teams;
     }
     
@@ -71,6 +72,8 @@ contract PetitProno is GetOracleInfo {
     function changeOwner(address _newOwner) public OnlyOwner{
         owner = _newOwner;
     }
+
+
 
     /** LEAGUE */
     //add a league
@@ -97,6 +100,47 @@ contract PetitProno is GetOracleInfo {
     //time up for the league
     function endLeague(string memory _LeagueId) public OnlyOwner{
         Leagues[_LeagueId].time = Time.FINISHED;
+    }
+
+    //get the time of a league
+    function getTime(string memory _LeagueId) public view returns(Time){
+        return Leagues[_LeagueId].time;
+    }
+
+    //get the best players of a league
+    function getBestTeams(string memory _LeagueId) public view returns(string [] memory){
+        return Leagues[_LeagueId].bestTeams;
+    }
+
+    //sort the best teams of a league
+    function SortBestTeams(string memory _LeagueId) public {
+        calculateScore(_LeagueId);
+        uint _TeamNb = Leagues[_LeagueId].keyMappingTeam.length;
+        string [] memory _teams = new string[](_TeamNb);
+        for ( uint i; i<_TeamNb;i++){
+            string memory _TeamId = Leagues[_LeagueId].keyMappingTeam[i];
+            _teams[i] = _TeamId;
+        }
+        for (uint j; j<_TeamNb;j++){
+            for (uint l; l<_TeamNb;l++){
+                if (Leagues[_LeagueId].Teams[_teams[j]].totalScore > Leagues[_LeagueId].Teams[_teams[l]].totalScore){
+                    string memory _temp = _teams[j];
+                    _teams[j] = _teams[l];
+                    _teams[l] = _temp;
+                }
+            }
+        }
+        string [] memory _bestTreeTeams = new string[](3);
+        uint k = 0;
+        while (k<3 && k<_TeamNb) {
+            _bestTreeTeams[k] = _teams[k];
+            for (uint j; j<Leagues[_LeagueId].Teams[_teams[k]].keyMappingPlayer.length;j++){
+                address _player = Leagues[_LeagueId].Teams[_teams[k]].keyMappingPlayer[j];
+                Leagues[_LeagueId].Teams[_teams[k]].Players[_player].nftTeam[k] = NFT_Mint.ENABLED;
+            }
+            k++;
+        }
+        Leagues[_LeagueId].bestTeams = _bestTreeTeams;
     }
 
     
@@ -164,10 +208,64 @@ contract PetitProno is GetOracleInfo {
         return [_TeamId,Team_name,ipfs];
     }                       
 
+    //sort best player of a team
+    function SortBestPlayers(string memory _LeagueId) public {
+        for ( uint i; i<Leagues[_LeagueId].keyMappingTeam.length;i++){
+            string memory _TeamId = Leagues[_LeagueId].keyMappingTeam[i];
+            uint _PlayerNb = Leagues[_LeagueId].Teams[_TeamId].keyMappingPlayer.length;
+            address [] memory _players = new address[](_PlayerNb);
+            for (uint k; k<_PlayerNb;k++){
+                _players[k]=Leagues[_LeagueId].Teams[_TeamId].keyMappingPlayer[k];
+            }
+            for (uint j; j<_PlayerNb;j++){
+                for (uint l; l<_PlayerNb;l++){
+                    if (Leagues[_LeagueId].Teams[_TeamId].Players[_players[j]].score > Leagues[_LeagueId].Teams[_TeamId].Players[_players[l]].score){
+                        address _temp = _players[j];
+                        _players[j] = _players[l];
+                        _players[l] = _temp;
+                    }
+                }
+            }
+            address [] memory _bestTreePlayers = new address[](3);
+            uint m = 0;
+            while (m<3 && m<_PlayerNb) {
+                _bestTreePlayers[m] = _players[m];
+                Leagues[_LeagueId].Teams[_TeamId].Players[_players[m]].nftPlayer = NFT_Mint.ENABLED;
+                m++;
+            }
+            Leagues[_LeagueId].Teams[_TeamId].bestPlayers = _bestTreePlayers;
+        }
+    }
+
+    //get the best player of a team
+    function getBestPlayers(string memory _LeagueId, string memory _TeamId) public view returns(address [] memory){
+        return Leagues[_LeagueId].Teams[_TeamId].bestPlayers;
+    }
+
+    //calculate the score of each team
+    function calculateScore(string memory _LeagueId) public {
+        for (uint i; i<Leagues[_LeagueId].keyMappingTeam.length;i++){
+            string memory _TeamId = Leagues[_LeagueId].keyMappingTeam[i];
+            uint _PlayerNb = Leagues[_LeagueId].Teams[_TeamId].keyMappingPlayer.length;
+            uint _score = 0;
+            for (uint k; k<_PlayerNb;k++){
+                address _player = Leagues[_LeagueId].Teams[_TeamId].keyMappingPlayer[k];
+                _score += Leagues[_LeagueId].Teams[_TeamId].Players[_player].score;
+            }
+            Leagues[_LeagueId].Teams[_TeamId].totalScore = _score;
+        }
+    }
+
+
+
     /** PLAYER */
     //add a player to a certain league and team
     function addPlayer(string memory _LeagueId, string memory _TeamId, string memory _Player_name) public {
         Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Player_name = _Player_name;
+        Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].nftTeam[0] = NFT_Mint.DISABLED;
+        Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].nftTeam[1] = NFT_Mint.DISABLED;
+        Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].nftTeam[2] = NFT_Mint.DISABLED;
+        Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].nftPlayer = NFT_Mint.DISABLED;
         Leagues[_LeagueId].Teams[_TeamId].keyMappingPlayer.push(msg.sender);
         if (keccak256(abi.encodePacked(Leagues[_LeagueId].refTeamId)) != ""){
             string memory _referenceTeamId = Leagues[_LeagueId].refTeamId;
@@ -180,7 +278,6 @@ contract PetitProno is GetOracleInfo {
                 Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_forecastId].result = _forecast.result;
                 Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_forecastId].PointNb = 0;
                 Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_forecastId].matchDate = _forecast.matchDate;
-                Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_forecastId]._oracleId = _forecast._oracleId;
                 Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_forecastId].scoreIsSet = _forecast.scoreIsSet;   
                 Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_forecastId].nftMint = _forecast.nftMint;   
                 Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_forecastId].time = _forecast.time;   
@@ -189,14 +286,18 @@ contract PetitProno is GetOracleInfo {
         emit NewTeam( _LeagueId,  _TeamId, Leagues[_LeagueId].Teams[_TeamId].Team_name);
     }
 
-    //update score of a player in a certain team and league
+    //update score of all players in a certain team of a league
     function updateScore(string memory _LeagueId, string memory _TeamId) public {
-        uint _score = 0;
-        for (uint k ; k<Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].keyMappingForecasts.length; k++){
-            string memory _key = Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].keyMappingForecasts[k];
-            _score += Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_key].PointNb;
+        uint _PlayerNb = Leagues[_LeagueId].Teams[_TeamId].keyMappingPlayer.length;
+        for (uint i; i<_PlayerNb;i++){
+            address _player = Leagues[_LeagueId].Teams[_TeamId].keyMappingPlayer[i];
+            uint _score = 0;
+            for (uint k ; k<Leagues[_LeagueId].Teams[_TeamId].Players[_player].keyMappingForecasts.length; k++){
+                string memory _key = Leagues[_LeagueId].Teams[_TeamId].Players[_player].keyMappingForecasts[k];
+                _score += Leagues[_LeagueId].Teams[_TeamId].Players[_player].Forecasts[_key].PointNb;
+            }
+            Leagues[_LeagueId].Teams[_TeamId].Players[_player].score = _score;
         }
-        Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].score = _score;
     }
 
     //return all the player of a certain team and league
@@ -205,10 +306,23 @@ contract PetitProno is GetOracleInfo {
     }
 
     //return the name of a player and his score of a certain team and league
-    function getPlayerInfo(string memory _LeagueId, string memory _TeamId, address _walletId) public view returns(string memory,uint){
+    function getPlayerInfo(string memory _LeagueId, string memory _TeamId, address _walletId) public view returns(string memory,uint, NFT_Mint [3] memory, NFT_Mint){
         string memory Player_name = Leagues[_LeagueId].Teams[_TeamId].Players[_walletId].Player_name;
         uint score = Leagues[_LeagueId].Teams[_TeamId].Players[_walletId].score;
-        return (Player_name, score);
+        NFT_Mint [3] memory nftTeam = Leagues[_LeagueId].Teams[_TeamId].Players[_walletId].nftTeam;
+        NFT_Mint nftPlayer = Leagues[_LeagueId].Teams[_TeamId].Players[_walletId].nftPlayer;
+        return (Player_name, score, nftTeam, nftPlayer);
+    }
+    //Player Mint his NFT for nftTeam First, second, third depending on rg
+    function MintNFTTeam(string memory _LeagueId, string memory _TeamId, uint rg) public {
+        require(Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].nftTeam[rg] == NFT_Mint.ENABLED, "NFT already mint");
+        Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].nftTeam[rg] = NFT_Mint.MINTED;
+    }
+
+    //Player Mint his NFT for nftPlayer
+    function MintNFTPlayer(string memory _LeagueId, string memory _TeamId) public {
+        require(Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].nftPlayer == NFT_Mint.ENABLED, "NFT already mint");
+        Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].nftPlayer = NFT_Mint.MINTED;
     }
 
     /** FORECAST */
@@ -277,7 +391,6 @@ contract PetitProno is GetOracleInfo {
         }
     }
 
-
     //calculate point for a player
     function calculatePoint(string memory _LeagueId, string memory _TeamId, address _walletId,string memory _matchId) public {
         uint[2] memory _result = Leagues[_LeagueId].Teams[_TeamId].Players[_walletId].Forecasts[_matchId].result;
@@ -304,7 +417,6 @@ contract PetitProno is GetOracleInfo {
             Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_matchId].prono = _prono;
         }else{
             updateTime( _LeagueId, _matchId);
-            emit MatchAvailable(_LeagueId,_matchId);
         }
     }
 
@@ -317,6 +429,7 @@ contract PetitProno is GetOracleInfo {
     function getForecastPointNb(string memory _LeagueId, string memory _TeamId, string memory _matchId) public view returns(uint){
         return Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_matchId].PointNb;
     }
+
     //set NFT mint for a player
     function setNFTMint(string memory _LeagueId, string memory _TeamId, string memory _matchId) public {
         require(Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_matchId].nftMint == NFT_Mint.ENABLED, "NFT mint is not enabled");
@@ -327,15 +440,4 @@ contract PetitProno is GetOracleInfo {
     function getNFTMint(string memory _LeagueId, string memory _TeamId, string memory _matchId) public view returns(NFT_Mint){
         return Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_matchId].nftMint;
     }
-
-    //set forecast OracleId
-    function setForecastOracleId(string memory _LeagueId, string memory _TeamId, string memory _matchId, bytes32 _OracleId) public OnlyOwner{
-        Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_matchId]._oracleId = _OracleId;
-    }
-
-    //get forecast OracleId
-    function getForecastOracleId(string memory _LeagueId, string memory _TeamId, string memory _matchId) public view returns(bytes32){
-        return Leagues[_LeagueId].Teams[_TeamId].Players[msg.sender].Forecasts[_matchId]._oracleId;
-    }
 }
-

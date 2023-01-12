@@ -41,7 +41,7 @@ const ethereumClient = new EthereumClient(wagmiClient, chains)*/
 
 // Apollo Client
 const client = new ApolloClient({
-  uri: 'http://localhost:8000/subgraphs/name/NFT_Viewer',
+  uri: 'https://thegraph.bellecour.iex.ec/subgraphs/name/bellecour/erc721',
   cache: new InMemoryCache(),
 })
 
@@ -50,7 +50,7 @@ root.render(
   <BrowserRouter>
     <ApolloProvider client={client}>
       <Provider store={store}>
-        <WebProvider/>
+        <WebProvider />
         <ScrollToTop />
         <App />
       </Provider>
